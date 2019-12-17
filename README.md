@@ -8,6 +8,8 @@ TetrisAI consistently achieves a high score of 135 against random pieces. We hav
 
 Beatris is able to stunt TetrisAI's score down to an average of ~19, with a total max score of 45.
 
+## To Run:
+
 #### Requirements
 
 - Tensorflow (`tensorflow-gpu==1.14.0`, CPU version can be used too)
@@ -17,8 +19,6 @@ Beatris is able to stunt TetrisAI's score down to an average of ~19, with a tota
 - Numpy (`numpy==1.16.4`)
 - Pillow (`Pillow==5.4.1`)
 - Tqdm (`tqdm==4.31.1`)
-
-## To Run:
 
 ### Running TetrisAI vs random pieces
 
