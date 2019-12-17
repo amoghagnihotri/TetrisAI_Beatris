@@ -62,4 +62,4 @@ Set desired `<epsilon_stop_episode>` and `<episodes>` depending on training time
 
 ### Team
 
-This project was made as a project for Dr. Caramanis' EE460J Data Science Laboratory class at The University of Texas at Austin. The team consisted of [Amogh Agnihotri](amoghagnihotri@utexas.edu), Ramya Rajasekaran, Reese Costis, Prajakta Joshi, Rebecca Phung, and Suhas Raja.
+This project was for the final project for Dr. Caramanis' EE460J Data Science Laboratory class at The University of Texas at Austin. The team consisted of [Amogh Agnihotri](mailto:amoghagnihotri@utexas.edu), Ramya Rajasekaran, Reese Costis, Prajakta Joshi, Rebecca Phung, and Suhas Raja. Starting code was taken from a similar [past project](https://github.com/nuno-faria/tetris-ai)
