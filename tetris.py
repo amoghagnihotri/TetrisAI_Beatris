@@ -1,13 +1,18 @@
-import random
+import random as rnd
+from random import random
 import cv2
 import numpy as np
 from PIL import Image
 from time import sleep
+import getch
 
 # Tetris game class
 class Tetris:
 
     '''Tetris game class'''
+
+    training = None
+    random_threshold = -1 # Use .1 for avoiding loops with previous hater_stopEps
 
     # BOARD
     MAP_EMPTY = 0
@@ -66,22 +71,24 @@ class Tetris:
         1: (247, 64, 99),
         2: (0, 167, 247),
     }
+    hater=None
 
-
-    def __init__(self):
+    def __init__(self, training):
+        self.training = training
         self.reset()
+        self.hater = None
 
-    
+
     def reset(self):
         '''Resets the game, returning the current state'''
         self.board = [[0] * Tetris.BOARD_WIDTH for _ in range(Tetris.BOARD_HEIGHT)]
         self.game_over = False
         self.bag = list(range(len(Tetris.TETROMINOS)))
-        random.shuffle(self.bag)
+        rnd.shuffle(self.bag)
         self.next_piece = self.bag.pop()
         self._new_round()
         self.score = 0
-        return self._get_board_props(self.board)
+        return self._get_board_props(self.board)+[self.next_piece]
 
 
     def _get_rotated_piece(self):
@@ -106,17 +113,23 @@ class Tetris:
         For lines cleared, it is used BOARD_WIDTH * lines_cleared ^ 2.
         '''
         return self.score
-    
+
 
     def _new_round(self):
         '''Starts a new round (new piece)'''
         # Generate new bag with the pieces
         if len(self.bag) == 0:
             self.bag = list(range(len(Tetris.TETROMINOS)))
-            random.shuffle(self.bag)
-        
+            rnd.shuffle(self.bag)
+
         self.current_piece = self.next_piece
-        self.next_piece = self.bag.pop()
+
+        rand = random()
+        if self.hater==None:
+            self.next_piece = self.bag.pop()
+        else:
+            if rand > self.random_threshold: self.next_piece = self.hater.best_state(self._get_piece_states())[4] # 10% had 25 avg with max of 100
+            else: self.next_piece = self.bag.pop()
         self.current_pos = [3, 0]
         self.current_rotation = 0
 
@@ -151,7 +164,7 @@ class Tetris:
 
 
     def _add_piece_to_board(self, piece, pos):
-        '''Place a piece in the board, returning the resulting board'''        
+        '''Place a piece in the board, returning the resulting board'''
         board = [x[:] for x in self.board]
         for x, y in piece:
             board[y + pos[1]][x + pos[0]] = Tetris.MAP_BLOCK
@@ -194,11 +207,13 @@ class Tetris:
             while i < Tetris.BOARD_HEIGHT and col[i] != Tetris.MAP_BLOCK:
                 i += 1
             min_ys.append(i)
-        
+
         for i in range(len(min_ys) - 1):
             bumpiness = abs(min_ys[i] - min_ys[i+1])
             max_bumpiness = max(bumpiness, max_bumpiness)
             total_bumpiness += abs(min_ys[i] - min_ys[i+1])
+
+        max_bumpiness = max(min_ys) - min(min_ys)
 
         return total_bumpiness, max_bumpiness
 
@@ -229,15 +244,22 @@ class Tetris:
         holes = self._number_of_holes(board)
         total_bumpiness, max_bumpiness = self._bumpiness(board)
         sum_height, max_height, min_height = self._height(board)
+        #return [lines, holes, total_bumpiness, sum_height, max_bumpiness]
         return [lines, holes, total_bumpiness, sum_height]
+
+    def _get_piece_states(self):
+        out_states=[]
+        for piece in list(range(len(Tetris.TETROMINOS))):
+            out_states.append(tuple(self._get_board_props(self.board)+[piece]))
+        return out_states
 
 
     def get_next_states(self):
         '''Get all possible next states'''
         states = {}
         piece_id = self.current_piece
-        
-        if piece_id == 6: 
+
+        if piece_id == 6:
             rotations = [0]
         elif piece_id == 0:
             rotations = [0, 90]
@@ -262,14 +284,14 @@ class Tetris:
                 # Valid move
                 if pos[1] >= 0:
                     board = self._add_piece_to_board(piece, pos)
-                    states[(x, rotation)] = self._get_board_props(board)
+                    states[(x, rotation)] = self._get_board_props(board)+[self.next_piece]
 
         return states
 
 
     def get_state_size(self):
         '''Size of the state'''
-        return 4
+        return 5
 
 
     def play(self, x, rotation, render=False, render_delay=None):
@@ -284,18 +306,35 @@ class Tetris:
                 if render_delay:
                     sleep(render_delay)
             self.current_pos[1] += 1
+            # key = getch.getch()
+            # if key == " ": self.current_rotation = (self.current_rotation + 90)% 360
+            # elif key == "a" and self.current_pos[0] > -1: self.current_pos[0] -= 1
+            # elif key == "d" and self.current_pos[0] < 9: self.current_pos[0] += 1
+            # print(self.current_pos)
+            # print(self.current_rotation)
         self.current_pos[1] -= 1
 
-        # Update board and calculate score        
+        # Update board and calculate score
         self.board = self._add_piece_to_board(self._get_rotated_piece(), self.current_pos)
         lines_cleared, self.board = self._clear_lines(self.board)
-        score = 1 + (lines_cleared ** 2) * Tetris.BOARD_WIDTH
+        # if self.training:
+        #     score = 1 + (lines_cleared ** 2)*self.BOARD_WIDTH
+        #     - (0.1)*self._bumpiness(self.board)[0]/self.BOARD_WIDTH
+        if self.training:
+            score = 1 + (lines_cleared ** 4)*self.BOARD_WIDTH
+            - (0.25)*self._bumpiness(self.board)[0]/self.BOARD_WIDTH
+            - (0.25)*self._number_of_holes(self.board)/self.BOARD_WIDTH
+        else: score = (lines_cleared**2)
         self.score += score
+        if(self.score > 25000):
+            print("Current score: " + str(self.score), end = "\r")
+        if self.training and (self.score > 50000):
+            self.game_over = True
 
         # Start new round
         self._new_round()
-        if self.game_over:
-            score -= 2
+        if self.game_over and self.training:
+            score -= 400
 
         return score, self.game_over
 

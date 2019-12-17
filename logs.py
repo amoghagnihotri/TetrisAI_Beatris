@@ -1,5 +1,5 @@
 from keras.callbacks import TensorBoard
-from tensorflow.summary import FileWriter
+from tensorboardX import FileWriter
 
 class CustomTensorBoard(TensorBoard):
     def __init__(self, **kwargs):
@@ -10,4 +10,5 @@ class CustomTensorBoard(TensorBoard):
         pass
 
     def log(self, step, **stats):
-        self._write_logs(stats, step)
+        # self.write(stats, step)
+        pass

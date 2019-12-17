@@ -3,6 +3,7 @@ from keras.layers import Dense
 from collections import deque
 import numpy as np
 import random
+import os.path
 
 # Deep Q Learning Agent + Maximin
 #
@@ -33,7 +34,8 @@ class DQNAgent:
     def __init__(self, state_size, mem_size=10000, discount=0.95,
                  epsilon=1, epsilon_min=0, epsilon_stop_episode=500,
                  n_neurons=[32,32], activations=['relu', 'relu', 'linear'],
-                 loss='mse', optimizer='adam', replay_start_size=None):
+                 loss='mse', optimizer='adam', replay_start_size=None, 
+                 training=False, agent_save_filepath='file'):
 
         assert len(activations) == len(n_neurons) + 1
 
@@ -50,22 +52,41 @@ class DQNAgent:
         if not replay_start_size:
             replay_start_size = mem_size / 2
         self.replay_start_size = replay_start_size
+        self.training = training
+        self.agent_save_filepath = agent_save_filepath
         self.model = self._build_model()
 
 
     def _build_model(self):
-        '''Builds a Keras deep neural network model'''
-        model = Sequential()
-        model.add(Dense(self.n_neurons[0], input_dim=self.state_size, activation=self.activations[0]))
+        if self.training:
+            '''Builds a Keras deep neural network model'''
+            print("Building new Model")
+            model = Sequential()
+            model.add(Dense(self.n_neurons[0], input_dim=self.state_size, activation=self.activations[0]))
 
-        for i in range(1, len(self.n_neurons)):
-            model.add(Dense(self.n_neurons[i], activation=self.activations[i]))
+            for i in range(1, len(self.n_neurons)):
+                model.add(Dense(self.n_neurons[i], activation=self.activations[i]))
 
-        model.add(Dense(1, activation=self.activations[-1]))
+            model.add(Dense(1, activation=self.activations[-1]))
 
-        model.compile(loss=self.loss, optimizer=self.optimizer)
-        
-        return model
+            model.compile(loss=self.loss, optimizer=self.optimizer)
+            print(model.get_weights()[0][0])
+            return model
+        else:
+            # model = Sequential()
+            # model.add(Dense(self.n_neurons[0], input_dim=self.state_size, activation=self.activations[0]))
+            #
+            # for i in range(1, len(self.n_neurons)):
+            #     model.add(Dense(self.n_neurons[i], activation=self.activations[i]))
+            #
+            # model.add(Dense(1, activation=self.activations[-1]))
+            #
+            # model.compile(loss=self.loss, optimizer=self.optimizer)
+            # model.set_weights(self.load_agent().get_weights())
+            model = self.load_agent(self.agent_save_filepath)
+            print("Loading Model")
+            print(model.get_weights()[0][0])
+            return model
 
 
     def add_to_memory(self, current_state, next_state, reward, done):
@@ -86,7 +107,7 @@ class DQNAgent:
     def act(self, state):
         '''Returns the expected score of a certain state'''
         state = np.reshape(state, [1, self.state_size])
-        if random.random() <= self.epsilon:
+        if random.random() <= self.epsilon and self.training:
             return self.random_value()
         else:
             return self.predict_value(state)
@@ -97,12 +118,15 @@ class DQNAgent:
         max_value = None
         best_state = None
 
-        if random.random() <= self.epsilon:
+        if random.random() <= self.epsilon and self.training:
             return random.choice(list(states))
 
         else:
             for state in states:
-                value = self.predict_value(np.reshape(state, [1, self.state_size]))
+                if len(state) == 4 and "hater" not in agent_save_filepath:
+                    toBeAdded = state+[self.next_piece]
+                else: toBeAdded = state
+                value = self.predict_value(np.reshape(toBeAdded, [1, self.state_size]))
                 if not max_value or value > max_value:
                     max_value = value
                     best_state = state
@@ -113,7 +137,7 @@ class DQNAgent:
     def train(self, batch_size=32, epochs=3):
         '''Trains the agent'''
         n = len(self.memory)
-    
+
         if n >= self.replay_start_size and n >= batch_size:
 
             batch = random.sample(self.memory, batch_size)
@@ -142,3 +166,9 @@ class DQNAgent:
             # Update the exploration variable
             if self.epsilon > self.epsilon_min:
                 self.epsilon -= self.epsilon_decay
+
+    def save_agent(self, path):
+        self.model.save(path)
+
+    def load_agent(self, path):
+        return load_model(path)
